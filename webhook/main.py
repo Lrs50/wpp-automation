@@ -1,16 +1,18 @@
 from fastapi import FastAPI, Request
 import os
 from dotenv import load_dotenv
-
+from webhook.chatbot import Chatbot
+from pprint import pprint
 """
 uvicorn webhook.main:app --reload  
-ngrok 8000
+ngrok http 8000
 """
 
 load_dotenv()
 app = FastAPI()
-
+bot = Chatbot()
 VERIFY_TOKEN = os.getenv("verify_token")
+
 
 @app.get("/webhook")
 async def verify(request: Request):
@@ -25,15 +27,16 @@ async def verify(request: Request):
 @app.post("/webhook")
 async def receive_message(request: Request):
     data = await request.json()
-    print("Mensagem recebida:", data)
-
     try:
-        message = data["entry"][0]["changes"][0]["value"]["messages"][0]
-        text = message["text"]["body"]
-        sender = message["from"]
-        print(f"Mensagem de {sender}: {text}")
-        # Aqui: processar mensagem, salvar no Google Sheets, responder, etc.
-    except KeyError:
-        print("Evento não contém mensagem de texto.")
+        value = data["entry"][0]["changes"][0]["value"]
+        
+        if "messages" in value:
+        
+            message = data["entry"][0]["changes"][0]["value"]["messages"][0]
+            contact = data["entry"][0]["changes"][0]["value"]["contacts"][0]
+            bot.recieve_message(message,contact)
+    except Exception as e:
+        print(f"Error receive_message API {e}")
+
     
     return {"status": "ok"}
