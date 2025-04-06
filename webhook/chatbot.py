@@ -187,7 +187,9 @@ def parser(msg):
     - ❌ O modelo **não pode atualizar registros anteriores de gastos ou dívidas**.
     - ✅ Se o usuário quiser corrigir uma informação sobre um gasto ou dívida (ex: "na verdade o valor era 20"), essa correção deve ser registrada como uma nova intenção `"registrar_anotacao"`, salvando a observação como uma anotação separada.
     - 💡 **Boa prática**: ao processar mensagens que envolvem **análises ou solicitações sobre dívidas ou gastos**, é apropriado sempre considerar também as informações registradas como `"informacao_importante"` que possam fornecer contexto adicional, histórico ou observações relevantes. Isso ajuda o assistente a oferecer respostas mais completas, personalizadas e corretas.
-    - Apenas faça uma solicitação de resgaste igual por vez, você pode pedir para resgatar diversos dados, mas não repita a mesma solicitação a base é a mesma.
+     - É estritamente proibido realizar solicitações repetidas do mesmo tipo de dado em uma única requisição.
+        - Solicitações duplicadas são redundantes, pois a base de dados consultada é a mesma.
+        - Você pode requisitar múltiplos tipos de dados diferentes, mas cada tipo de solicitação deve ocorrer apenas uma vez por requisição.
     
     📦 Campos esperados para "registrar_gasto":
     - "valor": número decimal
@@ -305,13 +307,21 @@ class Chatbot(object):
             #actions = ["registrar_gasto", "consultar_gastos","registrar_divida","consultar_divida", "ajuda","conversa"]
             sys_info = ""
             
+            repete = set()
+            
             for act in list_actions:
-                intetion = act["intencao"]
-                print(intetion)
-                if intetion in ["conversa","ajuda"]:
-                    sys_info += f"""\n[sys]: O usuario quer {intetion}"""
+                intention = act["intencao"]
+                
+                if ("resgatar" in intention) and (intention in repete):
+                    continue
+                
+                repete.add(intention)
                     
-                elif intetion == "registrar_gasto":
+                print(intention)
+                if intention in ["conversa","ajuda"]:
+                    sys_info += f"""\n[sys]: O usuario quer {intention}"""
+                    
+                elif intention == "registrar_gasto":
                     
                     try:
                         dados = act["dados"]
@@ -331,7 +341,7 @@ class Chatbot(object):
                     except Exception as e:
                         sys_info += f"""\n[sys]: falha ao salvar o gasto motivo: {e}"""
                     
-                elif intetion == "consultar_gastos":
+                elif intention == "consultar_gastos":
                     
                     try:
                         data = db.get(User.number == number)
@@ -340,7 +350,7 @@ class Chatbot(object):
                     except Exception as e:
                         sys_info += f"""\n[sys]: falha ao salvar resgatar os dados solicitados: {e}"""
                 
-                elif intetion == "registrar_divida":   
+                elif intention == "registrar_divida":   
                     try:
                         dados = act["dados"]
                         
@@ -360,7 +370,7 @@ class Chatbot(object):
                     except Exception as e:
                         sys_info += f"""\n[sys]: falha ao salvar o divida motivo: {e}"""
                 
-                elif intetion == "consultar_divida":
+                elif intention == "consultar_divida":
                     try:
                         data = db.get(User.number == number)
                         data = data["dividas"]
@@ -368,7 +378,7 @@ class Chatbot(object):
                     except Exception as e:
                         sys_info += f"""\n[sys]: falha ao salvar resgatar os dados solicitados: {e}"""
                 
-                elif intetion == "registrar_anotacao":
+                elif intention == "registrar_anotacao":
                     try:
                         dados = act["dados"]
                         new_data = {
@@ -383,7 +393,7 @@ class Chatbot(object):
                     except Exception as e:
                         sys_info += f"""\n[sys]: falha ao salvar a informação motivo: {e}"""
                         
-                elif intetion == "resgatar_anotacao":
+                elif intention == "resgatar_anotacao":
                     try:
                         data = db.get(User.number == number)
                         data = data["key_info"]
