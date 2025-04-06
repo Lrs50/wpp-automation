@@ -20,7 +20,7 @@ mae_number = os.getenv("mae_number")
 gemini_key = os.getenv("gemini_key")
 
 
-actions = ["registrar_gasto", "consultar_gastos","registrar_divida","consultar_divida","conversa","registrar_informacao_importante","resgatar_informacao_importante"]
+actions = ["registrar_gasto", "consultar_gastos","registrar_divida","consultar_divida","conversa","registrar_anotacao","resgatar_anotacao"]
 
 initial_prompt = f"""
 Você é um assistente financeiro inteligente chamado *Bot da Grana*, que interage com os usuários exclusivamente através do WhatsApp.
@@ -75,13 +75,13 @@ Sempre que apropriado, comunique essas funcionalidades de maneira clara, amigáv
 📌 Políticas e boas práticas com base nas intenções recebidas:
 
 - ❌ *Você não pode atualizar registros anteriores de gastos ou dívidas.*
-  - Se o usuário quiser corrigir uma informação (por exemplo, “na verdade o valor era 20”), **responda com gentileza** e registre a correção como uma observação, usando a funcionalidade `"registrar_informacao_importante"`.
+  - Se o usuário quiser corrigir uma informação (por exemplo, “na verdade o valor era 20”), **responda com gentileza** e registre a correção como uma observação, usando a funcionalidade `"registrar_anotacao"`.
   - Exemplo de resposta:
     > _Beleza! Não consigo mudar o que foi registrado, mas posso anotar essa correção pra você._ 😊
 
 - ✅ *Você pode salvar e consultar anotações ou observações importantes.*
-  - Quando a intenção for `"registrar_informacao_importante"`, armazene o conteúdo como uma anotação pessoal do usuário.
-  - Quando a intenção for `"resgatar_informacao_importante"`, tente recuperar a informação e, caso ela não exista, **responda de forma acolhedora e proativa**, como:
+  - Quando a intenção for `"registrar_anotacao"`, armazene o conteúdo como uma anotação pessoal do usuário.
+  - Quando a intenção for `"resgatar_anotacao"`, tente recuperar a informação e, caso ela não exista, **responda de forma acolhedora e proativa**, como:
     > _Ainda não tenho isso salvo, mas posso lembrar se quiser me contar agora._ 😉
 
 - 💡 *Ao responder perguntas ou análises sobre gastos e dívidas*, sempre que possível **considere também as observações registradas**, pois elas podem conter correções ou contexto adicional relevante.
@@ -180,14 +180,15 @@ def parser(msg):
     📌 Importante:
 
     - Apenas informações sobre **gastos** e **dívidas** são utilizadas diretamente em análises, relatórios ou consultas específicas.
-    - Qualquer outra informação que o usuário deseje guardar e que pareça importante (como lembretes, anotações, correções, compromissos, fatos relevantes ou informações pessoais — como nome, CPF, etc.) deve ser registrada com a intenção `"registrar_informacao_importante"`, mesmo que não esteja relacionada a dinheiro.
-    - Se o usuário disser algo como "meu nome é Lucas", isso deve ser salvo como `"registrar_informacao_importante"`. Se ele disser "qual é o meu nome?", isso deve ser interpretado como `"resgatar_informacao_importante"`.
-    - ⚠️ Mesmo que a informação ainda não tenha sido registrada, a intenção `"resgatar_informacao_importante"` deve ser usada normalmente. Isso permite que o assistente responda de forma gentil, como: "Ainda não sei o seu nome, mas posso lembrar se você quiser me contar. 😊"
+    - Qualquer outra informação que o usuário deseje guardar e que pareça importante (como lembretes, anotações, correções, compromissos, fatos relevantes ou informações pessoais — como nome, CPF, etc.) deve ser registrada com a intenção `"registrar_anotacao"`, mesmo que não esteja relacionada a dinheiro.
+    - Se o usuário disser algo como "meu nome é Lucas", isso deve ser salvo como `"registrar_anotacao"`. Se ele disser "qual é o meu nome?", isso deve ser interpretado como `"resgatar_anotacao"`.
+    - ⚠️ Mesmo que a informação ainda não tenha sido registrada, a intenção `"resgatar_anotacao"` deve ser usada normalmente. Isso permite que o assistente responda de forma gentil, como: "Ainda não sei o seu nome, mas posso lembrar se você quiser me contar. 😊"
     - O modelo **não deve dizer que não tem acesso a informações pessoais**. Em vez disso, deve assumir que essas informações podem ter sido registradas anteriormente e sempre responder com simpatia e utilidade.
     - ❌ O modelo **não pode atualizar registros anteriores de gastos ou dívidas**.
-    - ✅ Se o usuário quiser corrigir uma informação sobre um gasto ou dívida (ex: "na verdade o valor era 20"), essa correção deve ser registrada como uma nova intenção `"registrar_informacao_importante"`, salvando a observação como uma anotação separada.
+    - ✅ Se o usuário quiser corrigir uma informação sobre um gasto ou dívida (ex: "na verdade o valor era 20"), essa correção deve ser registrada como uma nova intenção `"registrar_anotacao"`, salvando a observação como uma anotação separada.
     - 💡 **Boa prática**: ao processar mensagens que envolvem **análises ou solicitações sobre dívidas ou gastos**, é apropriado sempre considerar também as informações registradas como `"informacao_importante"` que possam fornecer contexto adicional, histórico ou observações relevantes. Isso ajuda o assistente a oferecer respostas mais completas, personalizadas e corretas.
-
+    - Apenas faça uma solicitação de resgaste igual por vez, você pode pedir para resgatar diversos dados, mas não repita a mesma solicitação a base é a mesma.
+    
     📦 Campos esperados para "registrar_gasto":
     - "valor": número decimal
     - "categoria": texto
@@ -207,8 +208,10 @@ def parser(msg):
     - "data": no formato yyyy-mm-dd (use a data atual se não informado)
     - "mes": no formato yyyy-mm (derivado da data)
 
-    📦 Campos esperados para "registrar_informacao_importante":
+    📦 Campos esperados para "registrar_anotacao":
     - "info": a informação considerada importante
+    - "data": no formato yyyy-mm-dd (use a data atual se não informado)
+    - "mes": no formato yyyy-mm (derivado da data)
 
     🧾 Mensagem: "{msg}"
 
@@ -227,23 +230,37 @@ def adicionar_db(numero, tipo, dados):
         # Se não existir, cria a estrutura inicial
         usuario = {
             "number": numero,
-            "gastos": [],
-            "dividas": [],
+            "gastos": {},
+            "dividas": {},
             "chat":[],
-            "key_info":[]
+            "key_info":{}
         }
         db.insert(usuario)
         usuario = db.get(User.number == numero)
 
     # Atualiza o documento com o novo item
     if tipo == "gasto":
-        usuario["gastos"].append(dados)
+        
+        if dados["mes"] not in usuario["gastos"]:
+            usuario["gastos"][dados["mes"]] = []
+        
+        usuario["gastos"][dados["mes"]].append(dados)
+        
     elif tipo == "divida":
-        usuario["dividas"].append(dados)
+        
+        if dados["pessoa"] not in usuario["dividas"]:
+            usuario["dividas"][dados["pessoa"]] = []
+        
+        usuario["dividas"][dados["pessoa"]].append(dados)
+        
     elif tipo == "chat":
         usuario["chat"].append(dados)
     elif tipo == "key_info":
-        usuario["key_info"].append(dados)
+        
+        if dados["mes"] not in usuario["key_info"]:
+            usuario["key_info"][dados["mes"]] = []
+        
+        usuario["key_info"][dados["mes"]].append(dados)
     else:
         raise ValueError("Tipo inválido!")
 
@@ -351,11 +368,13 @@ class Chatbot(object):
                     except Exception as e:
                         sys_info += f"""\n[sys]: falha ao salvar resgatar os dados solicitados: {e}"""
                 
-                elif intetion == "registrar_informacao_importante":
+                elif intetion == "registrar_anotacao":
                     try:
                         dados = act["dados"]
                         new_data = {
                         "info":dados["info"],
+                        "mes":dados["mes"],
+                        "data":dados["data"],
                         "timestamp": datetime.now().isoformat()
                         }
                         
@@ -364,7 +383,7 @@ class Chatbot(object):
                     except Exception as e:
                         sys_info += f"""\n[sys]: falha ao salvar a informação motivo: {e}"""
                         
-                elif intetion == "resgatar_informacao_importante":
+                elif intetion == "resgatar_anotacao":
                     try:
                         data = db.get(User.number == number)
                         data = data["key_info"]
@@ -413,12 +432,10 @@ class Chatbot(object):
         return history        
     
 def main():
-    data = db.get(User.number == carol_number)
+    data = db.get(User.number == personal_number)
     
-    pprint(data["dividas"])
+    pprint(data)
 
-
-    
     pass
     
 if __name__=="__main__":
