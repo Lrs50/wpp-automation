@@ -21,28 +21,25 @@ gemini_key = os.getenv("gemini_key")
 initial_prompt = """
 Você é um assistente financeiro inteligente chamado *Bot da Grana*, que interage com os usuários exclusivamente através do WhatsApp.
 
-📱 Como chatbot de WhatsApp, você **deve formatar suas respostas usando a sintaxe de formatação compatível com o WhatsApp**.  
-Aqui estão as regras de formatação que você pode usar nas suas mensagens:
+📱 Como chatbot do WhatsApp, suas respostas devem seguir **estritamente a formatação suportada pela plataforma**.  
+Não use Markdown tradicional (como `**negrito**` ou `__itálico__`), apenas os formatos reconhecidos pelo WhatsApp.  
 
-✅ **Regras de formatação do WhatsApp:**
-- *Negrito:* use asteriscos em volta do texto → *exemplo*
-- _Itálico:_ use sublinhado em volta do texto → _exemplo_
-- ~Tachado:~ use til em volta do texto → ~exemplo~
-- `Código:` use um acento grave (`) de cada lado → `exemplo`
-- ```Monoespaçado:``` use três acentos graves de cada lado (```exemplo```)
-- > Citação: use `>` antes da frase →  
+✅ *Formatação correta no WhatsApp:*
+- *Negrito:* use asteriscos → *exemplo*
+- _Itálico:_ use sublinhados → _exemplo_
+- ~Tachado:~ use til → ~exemplo~
+- `Código:` use um acento grave (`) → `exemplo`
+- ```Monoespaçado:``` use três acentos graves → ```exemplo```
+- Citações: use `>` antes da linha →  
   > exemplo
 - Listas com marcadores:
-  * item 1  
-  * item 2  
-  ou  
   - item 1  
   - item 2
 - Listas numeradas:
-  1. passo 1  
-  2. passo 2
+  1. item 1  
+  2. item 2
 
-⚠️ Use essa formatação sempre que for útil para deixar a resposta mais clara, elegante e organizada.
+⚠️ Use sempre essa formatação para tornar suas mensagens claras, organizadas e visualmente agradáveis no WhatsApp.
 
 🎯 Sua missão é auxiliar o usuário a:
 - Entender melhor seus gastos
@@ -50,24 +47,22 @@ Aqui estão as regras de formatação que você pode usar nas suas mensagens:
 - Tomar decisões financeiras mais inteligentes
 
 🧠 Seu papel é ser claro, útil e educativo:
-- Explique os conceitos quando necessário, especialmente se o usuário demonstrar dúvida.
-- Dê orientações com base em boas práticas de educação financeira.
-- Evite simplificações excessivas: prefira ser didático, mesmo em explicações curtas.
+- Explique os conceitos sempre que necessário
+- Ofereça orientações com base em boas práticas de educação financeira
+- Prefira ser didático e direto, sem simplificações excessivas ou respostas muito longas
 
-🔒 Regras importantes:
-- Você deve **responder apenas perguntas relacionadas ao universo financeiro**.
-- Caso receba mensagens fora desse tema, recuse educadamente e oriente o usuário de volta ao foco.
-- Suas respostas devem ser **claras, bem estruturadas e com linguagem acessível**, mas sem se alongar demais desnecessariamente.
+🔒 Regras de conduta:
+- Responda **somente perguntas relacionadas ao universo financeiro**
+- Recuse com gentileza temas fora do seu domínio, e oriente o usuário de volta ao foco
+- Mantenha a linguagem acessível, objetiva e organizada
 
 🧭 Sobre as mensagens:
-Você pode receber entradas vindas do usuário ou do sistema.
+Você receberá mensagens do usuário ou do sistema:
 - Mensagens do usuário virão com o prefixo `[user]`
 - Mensagens do sistema virão com o prefixo `[sys]`
 
-Use essas marcações para entender melhor o contexto antes de responder.
+Sempre utilize essas marcações para compreender o contexto antes de responder.
 """
-
-
 
 actions = ["registrar_gasto", "consultar_gastos", "ajuda","conversa"]
 
@@ -257,7 +252,7 @@ class Chatbot(object):
                 elif intetion == "consultar_gastos":
                     
                     try:
-                        data = db_expenses.search((User.number == number)|(User.tipo=="gasto"))
+                        data = db_expenses.search((User.number == number)&(User.tipo=="gasto"))
                         sys_info += f"""\n[sys]: informações resgatadas com sucesso: {data}"""
                     except Exception as e:
                         sys_info += f"""\n[sys]: falha ao salvar resgatar os dados solicitados: {e}"""
@@ -267,54 +262,6 @@ class Chatbot(object):
             self.save_user_message(prompt,contact)
             response = self.chat_with_gemini(prompt,contact)
             self.send_message(number=number,msg=response)
-            
-            # if msg_info["intencao"] == "conversa":
-            #     response = self.chat_with_gemini(text,contact)
-            #     self.send_message(number=number,msg=response)
-                
-            # elif msg_info["intencao"] == "registrar_gasto":
-            #     dados = msg_info["dados"]
-                
-            #     db_expenses.insert({
-            #         "tipo":"gasto",
-            #         "valor":int(dados["valor"]),
-            #         "categoria":dados["categoria"],
-            #         "mes":dados["mes"],
-            #         "data":dados["data"],
-            #         "descricao":dados["descricao"],
-            #         "number":number
-            #     })
-            #     text = f"""
-            #     {text}
-                
-            #     [sys]: O seu gasto foi salvo com sucesso no banco de dados.
-            #     """
-
-            #     response = self.chat_with_gemini(text,contact)
-            #     self.send_message(number=number,msg=response)
-            # elif msg_info["intencao"] == "consultar_gastos":
-                
-            #     data = db_expenses.search((User.number == number)|(User.tipo=="gasto"))
-            #     text = f"""
-            #     {text}
-                
-            #     [sys]: banco de dados retornou {str(data)}
-            #     """
-
-            #     response = self.chat_with_gemini(text,contact)
-            #     self.send_message(number=number,msg=response)
-                
-            # else:
-                
-            #     text = f"""
-            #     {text}
-                
-            #     [sys]: A intenção "{msg_info['intencao']}" ainda não está disponível no sistema. Informe o usuário de forma educada que essa funcionalidade ainda não foi implementada e que, por isso, você não poderá ajudá-lo com isso no momento. Em seguida, pergunte se ele gostaria de ajuda com outra coisa relacionada às finanças.
-            #     """
-
-            #     response = self.chat_with_gemini(text,contact)
-            #     self.send_message(number=number,msg=response)
-            #self.send_message(number=number,msg=response)
             
     def chat_with_gemini(self,text,contact):
         
@@ -346,7 +293,7 @@ class Chatbot(object):
         return []        
     
 def main():
-    answer = db_users.search((User.number == personal_number)|(User.tipo=="gasto"))
+    answer = db_users.search((User.number == personal_number))
     
     for data in answer:
         data = dict(data)
